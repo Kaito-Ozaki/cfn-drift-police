@@ -1,0 +1,18 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+    commands:
+      - npm install
+      - npm i -g serverless
+      - npm install --save serverless-go-build
+      - npm install --save serverless-prune-plugin
+      - go mod tidy
+  pre_build:
+    commands:
+      - make test
+  build:
+    commands:
+      - serverless build
+      - sls deploy --stage $STAGE --region $REGION

@@ -1,0 +1,58 @@
+service: cfn-drift-police
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: go1.x
+  region: ${opt:region, self:custom.defaultRegion}
+  stage: ${opt:stage, self:custom.defaultStage}
+  environment:
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
+    TZ: Asia/Tokyo
+    ACCOUNT_ID: ${self:custom.accountId.${self:provider.stage}}
+    QUEUE_URL: ${self:custom.otherfile.environment.${self:provider.stage}.sqs.queue_url}
+    SLACK_TOKEN_STORE: ${self:custom.otherfile.environment.${self:provider.stage}.ssm.slack_token_store}
+    SLACK_CHANNEL_NAME: ${self:custom.otherfile.environment.${self:provider.stage}.slack.channel_name}
+  memorySize: 512
+  timeout: 300 #5分あれば十分だと思うので、仮置きする
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action: "*"
+          Resource: "*"
+
+custom:
+  prune: # 直近5つのバージョンを残して他は削除
+    automatic: true
+    number: 5
+  defaultRegion: ap-northeast-1
+  defaultStage: dev
+  otherfile:
+    environment:
+      dev: ${file(./config/env/dev.yml)}
+      st: ${file(./config/env/st.yml)}
+      prod: ${file(./config/env/prod.yml)}
+  accountId:
+    dev: 000000000000 #ローカル開発用
+    st: 000000000001 # 公開用のダミーID
+    prod: 000000000002 # 公開用のダミーID
+
+plugins:
+  - serverless-go-build
+  - serverless-prune-plugin
+
+functions:
+  check:
+    handler: src/presentation/check/main.go
+    maximumRetryAttempts: 2
+    events:
+      - eventBridge:
+          schedule: cron(0 0 1 * ? *)
+  alert:
+    handler: src/presentation/alert/main.go
+    maximumRetryAttempts: 2
+    events:
+      - eventBridge:
+          schedule: cron(0 0 2 * ? *) #ドリフト検出の実行には時間がかかるので、checkが実行された1時間後に実行するようにする

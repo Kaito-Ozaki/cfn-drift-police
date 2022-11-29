@@ -1,0 +1,8 @@
+sqs:
+  queue_url: 'https://sqs.${self:provider.region}.amazonaws.com/${self:custom.accountId.${self:provider.stage}}/${self:provider.stage}-cfn-drift-police-queue'
+
+ssm:
+  slack_token_store: '/${self:provider.stage}/cfn/drift/police'
+
+slack:
+  channel_name: '#test_cfn_drift_police'
